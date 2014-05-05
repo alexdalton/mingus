@@ -1,0 +1,9 @@
+# swp files
+*.swp
+
+# object files
+*.o
+
+# executable files
+reliable_receiver
+reliable_sender

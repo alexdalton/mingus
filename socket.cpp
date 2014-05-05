@@ -22,12 +22,9 @@ int my::sockudp::send( std::string their_addr, std::string sendPort, std::string
     int numbytes;
     int sockfd;
 
-
-
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC; // set to AF_INET to force IPv4
     hints.ai_socktype = SOCK_DGRAM;
-
 
     if ((rv = getaddrinfo(their_addr.c_str(), sendPort.c_str(), &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
@@ -66,12 +63,7 @@ int my::sockudp::send( std::string their_addr, std::string sendPort, std::string
     close(sockfd);
 
     return 0;
-
-
-
-
 }
-
 
 bool my::sockudp::recOrTimeOut(std::string & message, std::string & ip, int ms){
     fd_set socks;
@@ -95,9 +87,7 @@ bool my::sockudp::recOrTimeOut(std::string & message, std::string & ip, int ms){
     }
     else
         return false;
-    
 }
-
 
 void my::sockudp::receive(std::string & message, std::string & ip){
 	struct sockaddr_storage their_addr;
@@ -139,8 +129,6 @@ int my::sockudp::init_receive(std::string inport)
 {
     struct addrinfo hints, *servinfo, *p;
     int rv;
-
-    
     
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC; // set to AF_INET to force IPv4
@@ -176,13 +164,7 @@ int my::sockudp::init_receive(std::string inport)
 
     freeaddrinfo(servinfo);
 
-    //std::cout << "listener: initialized on port " << inport << std::endl;
-
-    
-
     return 0;
-
-
 }
 
 void my::sockudp::end_receive()
