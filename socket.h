@@ -22,11 +22,10 @@ namespace my{
 		int fd;
 		int sockinfd;
 	public:
-		bool recOrTimeOut(std::string & message, std::string & ip, int ms);
-		int send( std::string their_addr, std::string sendPort, std::string message);
-		int send( std::string their_addr, std::string message);
-		void receive(std::string & message, std::string & ip);
-		int init_receive(std::string port);
+		bool recOrTimeOut(char* message, char* ip, int ms, int size);
+		int send( char* their_addr, char* sendPort, char* message, int length);
+		int receive(char* message, char* ip, int size);
+		int init_receive(char* inport);
 		void end_receive();
 	};
 }

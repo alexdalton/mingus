@@ -10,12 +10,7 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-int my::sockudp::send( std::string their_addr, std::string message)
-{
-    return send(their_addr, DEFAULT_PORT, message);
-}
-
-int my::sockudp::send( std::string their_addr, std::string sendPort, std::string message)
+int my::sockudp::send( char* their_addr, char* sendPort, char* message, int length)
 {
 	struct addrinfo hints, *servinfo, *p;
     int rv;
@@ -26,7 +21,7 @@ int my::sockudp::send( std::string their_addr, std::string sendPort, std::string
     hints.ai_family = AF_UNSPEC; // set to AF_INET to force IPv4
     hints.ai_socktype = SOCK_DGRAM;
 
-    if ((rv = getaddrinfo(their_addr.c_str(), sendPort.c_str(), &hints, &servinfo)) != 0) {
+    if ((rv = getaddrinfo(their_addr, sendPort, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
     }
@@ -47,8 +42,7 @@ int my::sockudp::send( std::string their_addr, std::string sendPort, std::string
         return 2;
     }
 
-
-    if ((numbytes = sendto(sockfd, message.c_str(), message.length(), 0,
+    if ((numbytes = sendto(sockfd, message, length, 0,
      p->ai_addr, p->ai_addrlen)) == -1) {
 	    perror("talker: sendto");
 	    exit(1);
@@ -56,16 +50,12 @@ int my::sockudp::send( std::string their_addr, std::string sendPort, std::string
 
     freeaddrinfo(servinfo);
 
-    //printf("talker: sent %d bytes to %s:%s\n", numbytes, their_addr.c_str(), sendPort.c_str());
-    //std::cout << message << std::endl;
-
-
     close(sockfd);
 
     return 0;
 }
 
-bool my::sockudp::recOrTimeOut(std::string & message, std::string & ip, int ms){
+bool my::sockudp::recOrTimeOut(char* message, char* ip, int ms, int size){
     fd_set socks;
     timeval tv;
     tv.tv_sec = 0;
@@ -82,28 +72,24 @@ bool my::sockudp::recOrTimeOut(std::string & message, std::string & ip, int ms){
         return false;
     else if (FD_ISSET(sockinfd,&socks))
     {
-        receive(message, ip);
+        receive(message, ip, size);
         return true;
     }
     else
         return false;
 }
 
-void my::sockudp::receive(std::string & message, std::string & ip){
+int my::sockudp::receive(char * message, char * ip, int size){
 	struct sockaddr_storage their_addr;
 
-    //std::cout << "listener: listening" << std::endl;
 	socklen_t addr_len = sizeof their_addr;
-	char buf[MAXBUFLEN];
 	char s[MAXBUFLEN];
 	int numbytes;
 
-	char ipbuf[50];
-
-    if ((numbytes = recvfrom(sockinfd, buf, MAXBUFLEN-1 , 0,
+    if ((numbytes = recvfrom(sockinfd, message, size - 1 , 0,
         (struct sockaddr *)&their_addr, &addr_len)) == -1) {
         perror("recvfrom");
-        exit(1);
+        return -1;
     }
 
     //printf("listener: got packet from %s\n",
@@ -111,21 +97,14 @@ void my::sockudp::receive(std::string & message, std::string & ip){
             get_in_addr((struct sockaddr *)&their_addr),
             s, sizeof s);//);
 
-    sprintf(ipbuf, "%s", inet_ntop(their_addr.ss_family,
+    sprintf(ip, "%s", inet_ntop(their_addr.ss_family,
             get_in_addr((struct sockaddr *)&their_addr),
             s, sizeof s)); 									// pass address along into "ip"
 
-    ip = std::string(ipbuf);
-
-    //printf("listener: packet is %d bytes long\n", numbytes);
-    buf[numbytes] = '\0';
-    //printf("listener: packet contains \"%s\"\n", buf);
-    message = std::string(buf);
-    
-
+    return numbytes;
 }
 
-int my::sockudp::init_receive(std::string inport)
+int my::sockudp::init_receive(char* inport)
 {
     struct addrinfo hints, *servinfo, *p;
     int rv;
@@ -135,7 +114,7 @@ int my::sockudp::init_receive(std::string inport)
     hints.ai_socktype = SOCK_DGRAM;
     hints.ai_flags = AI_PASSIVE; // use my IP
 
-    if ((rv = getaddrinfo(NULL, inport.c_str(), &hints, &servinfo)) != 0) {
+    if ((rv = getaddrinfo(NULL, inport, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
     }
