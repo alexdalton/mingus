@@ -6,7 +6,7 @@
 #include <fstream>
 #include <pthread.h>
 
-#define HEADERSIZE    3
+#define HEADERSIZE    2
 #define DATASIZE      1024
 #define PACKETSIZE    HEADERSIZE + DATASIZE
 #define MAXSEQNUM     64
@@ -17,61 +17,48 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile)
     std::ofstream outfile(destinationFile, std::ofstream::binary); // output file stream
     char packet[PACKETSIZE];                    // buffer for receiving packets
     char data_buffer[MAXSSTHRESH];              // buffer for storing received data
-    char buffer_size = 0;
     char ip[50];
     char port[6];
     int rec_bytes = 0;
-    int seqNumsReceived[MAXSEQNUM];             // boolean array to indicate which seqNums
-                                                // were received already
-    for(int i = 0; i < MAXSEQNUM; i++)
-    {
-        seqNumsReceived[i] = 0;
-    }
+    char lastConsecSeqNum = 63;                 // Tracks the last seqNum in a consecutive sequence of packets
+
     // Initialize UDP socket to listen on given port
     sprintf(port, "%d", (int) myUDPport);
     my::sockudp receiver;
     receiver.init_receive(port);
+
     while(1)
     {
         rec_bytes = receiver.receive(packet, ip, PACKETSIZE);
         if (rec_bytes > 0)
         {
+	    // packet is next packet in consecutive order after last consecutive set 
+	    if((packet[0] == (lastConsecSeqNum + 1)) || ((packet[0] == 0) && (lastConsecSeqNum == 63)))
+	    {
+		lastConsecSeqNum = packet[0];
+	    }
             // Send acknowledgement
-            receiver.send(ip, port, packet, 1);
+            receiver.send(ip, port, &lastConsecSeqNum, 1);
 
+	    // Buffer the data from the packet
             char seqNum = packet[0];
-            int offset = (int) seqNum * DATASIZE;
-            seqNumsReceived[(int) seqNum % MAXSEQNUM] = 1;
+            int offset = ((int) seqNum) * DATASIZE;
             memcpy(data_buffer + offset, packet + HEADERSIZE, rec_bytes - HEADERSIZE);
-            int bufferFull = 0;
-            int bufferSize = 0;
-            for(int i; i < MAXSEQNUM; i++)
-            {
-                bufferFull += seqNumsReceived[i];
-                if (seqNumsReceived[i])
-                {
-                    bufferSize += DATASIZE;
-                }
-            }
-            if(bufferFull || packet[1] == 'T')
+            if((lastConsecSeqNum == 63) || (packet[1] == 'T'))
             {
                 // write data buffer to file
+                int bufferSize = (((int)lastConsecSeqNum) * DATASIZE) + rec_bytes - HEADERSIZE;
                 outfile.write(data_buffer, bufferSize);
-                // clear out seqNumsReceived
-                for(int i = 0; i < MAXSEQNUM; i++)
-                {
-                    seqNumsReceived[i] = 0;
-                }
+            }
+	    // isEnd flag set to True
+            if (packet[1] == 'T')
+            {
+		receiver.end_receive();
+		outfile.close();
+            	return;
             }
         }
-        // isEnd flag set to True
-        if (packet[1] == 'T')
-        {
-            return;
-        }
     }
-    receiver.end_receive();
-    outfile.close();
 }
 
 int main(int argc, char** argv)
