@@ -8,7 +8,7 @@
 #include <queue>
 
 #define DATASIZE 1024
-#define HEADERSIZE 3
+#define HEADERSIZE 2
 #define PACKETSIZE HEADERSIZE + DATASIZE
 
 volatile int sendingData = 1;
@@ -27,7 +27,7 @@ void *send_function(void * inparams)
     sendThreadParams * params = (sendThreadParams *) inparams;
     std::ifstream in_file;
     in_file.open(params->filename, std::ifstream::binary);
-    std::cout << params->hostname << params->port << params ->filename << params->bytesToTransfer;
+    std::cout << params->hostname << params->port << params ->filename << params->bytesToTransfer << std::endl;
     if (in_file)
     {
         char port_cstr[6];
@@ -65,7 +65,8 @@ void *send_function(void * inparams)
             
             seqNum = (seqNum + 1) % 64;
         }
-        in_file.close();   
+        in_file.close();
+
     }
    
     pthread_exit(NULL);
@@ -88,7 +89,7 @@ void *receive_function(void * inport)
         {
             for(int i = 0; i < rec_bytes; i++)
             {
-                std::cout << "Acknolwedged: " << in_buffer[i] << std::endl;
+                std::cout << "Acknolwedged: " << (int)in_buffer[i] << std::endl;
                 ackQueue.push(in_buffer[i]);
             }
         }
