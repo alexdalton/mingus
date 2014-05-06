@@ -11,7 +11,7 @@
 #define HEADERSIZE 3
 #define PACKETSIZE HEADERSIZE + DATASIZE
 
-int sendingData = 1;
+volatile int sendingData = 1;
 std::queue<char> ackQueue;
 
 struct sendThreadParams
@@ -35,30 +35,36 @@ void *send_function(void * inparams)
         my::sockudp sender;
         int sentBytes = 0;      // number of reliably sent bytes from the file
         char windowSize = 1; 
-        char seqNum = (char) 0; // part of TCP header indicates sequence number
+        char seqNum = 0; // part of TCP header indicates sequence number
         char isEnd = 'F';       // part of TCP header flag indicates last packet        
+
 
         in_file.seekg(0, in_file.end);
         int length = in_file.tellg();
         in_file.seekg(0, in_file.beg);
 
         char packet[PACKETSIZE];
-        // Set TCP data
-        in_file.read(packet + HEADERSIZE, DATASIZE);
+            // Set TCP data
+        while(isEnd == 'F'){
 
-        // Read less bytes than data size, end of file reached
-        if (in_file.gcount() < DATASIZE)
-        {
-            isEnd = 'T';    
+            in_file.read(packet + HEADERSIZE, DATASIZE);
+
+            // Read less bytes than data size, end of file reached
+            if (in_file.gcount() < DATASIZE)
+            {
+                isEnd = 'T';
+            }
+
+            // Set TCP header
+            packet[0] = seqNum;
+            packet[1] = isEnd;
+
+            // Send TCP packet
+            sender.send(params->hostname, port_cstr, packet, in_file.gcount() + HEADERSIZE);
+
+            
+            seqNum = (seqNum + 1) % 64;
         }
-
-        // Set TCP header
-        packet[0] = seqNum;
-        packet[1] = isEnd;
-
-        // Send TCP packet
-        sender.send(params->hostname, port_cstr, packet, in_file.gcount() + HEADERSIZE);
-
         in_file.close();   
     }
    
