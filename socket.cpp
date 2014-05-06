@@ -55,7 +55,7 @@ int my::sockudp::send( char* their_addr, char* sendPort, char* message, int leng
     return 0;
 }
 
-bool my::sockudp::recOrTimeOut(char* message, char* ip, int ms, int size){
+int my::sockudp::recOrTimeOut(char* message, char* ip, int ms, int size){
     fd_set socks;
     timeval tv;
     tv.tv_sec = 0;
@@ -67,16 +67,15 @@ bool my::sockudp::recOrTimeOut(char* message, char* ip, int ms, int size){
 
     
     if(rv == -1)
-        return false;
+        return -1;
     else if (rv == 0)
-        return false;
+        return -1;
     else if (FD_ISSET(sockinfd,&socks))
     {
-        receive(message, ip, size);
-        return true;
+        return receive(message, ip, size);
     }
     else
-        return false;
+        return -1;
 }
 
 int my::sockudp::receive(char * message, char * ip, int size){

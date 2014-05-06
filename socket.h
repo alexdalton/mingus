@@ -22,7 +22,7 @@ namespace my{
 		int fd;
 		int sockinfd;
 	public:
-		bool recOrTimeOut(char* message, char* ip, int ms, int size);
+		int recOrTimeOut(char* message, char* ip, int ms, int size);
 		int send( char* their_addr, char* sendPort, char* message, int length);
 		int receive(char* message, char* ip, int size);
 		int init_receive(char* inport);
