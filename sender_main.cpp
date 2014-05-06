@@ -71,6 +71,7 @@ void *send_function(void * inparams)
         bool retransmit = false;
         int beginPos = in_file.tellg();
         int beginSeq = 0;
+
             // Set TCP data
         while(isEnd == 'F' || retransmit){
             retransmit = false;
@@ -85,6 +86,7 @@ void *send_function(void * inparams)
                 if (in_file.gcount() < DATASIZE)
                 {
                     isEnd = 'T';
+                    windowSize = i+1;
                 }
 
                 // Set TCP header
@@ -93,7 +95,7 @@ void *send_function(void * inparams)
 
                 std::cout << "sent " << (int)seqNum << std::endl;
                 // Send TCP packet
-                if(seqNum != 43)
+                //if(seqNum != 43)
                     sender.send(params->hostname, port_cstr, packet, in_file.gcount() + HEADERSIZE);
                 seqNum = (seqNum + 1) % 64;
                 if(isEnd == 'T')
@@ -112,11 +114,15 @@ void *send_function(void * inparams)
                 rec_bytes = rec.recOrTimeOut(&in_ack, ip_buffer, 1, 1);
                 if (rec_bytes != -1) // if no timeout or error
                 {
+                    
+                    std::cout << "inack: " << (int)in_ack << std::endl;
                     std::cout << __LINE__ << std::endl;
-                    in_ack = ((int)in_ack - beginSeq) % 64;
-//                    std::cout << "inack: " << (int)in_ack << std::endl;
-                    if((int)in_ack == -1)
-                    {                        
+                    in_ack = ((int)in_ack - beginSeq);
+                    if(in_ack < 0)
+                        in_ack += 64;
+                    std::cout << "inack: " << (int)in_ack << std::endl;
+                    if((int)in_ack == -1 && state == FAST_RECOVERY_STATE)
+                    {                    
                         dupeACKcount++;
                         if(dupeACKcount >= 3 && state != FAST_RECOVERY_STATE)
                             break;
