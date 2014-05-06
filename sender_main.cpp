@@ -60,8 +60,23 @@ void *send_function(void * inparams)
         in_file.seekg(0, in_file.beg);
 
         char packet[PACKETSIZE];
+
+        char in_ack;
+        char ip_buffer[50];
+        int rec_bytes = 0;
+        my::sockudp rec;
+        rec.init_receive(port_cstr);
+        int newWindowSize = windowSize;
+
+        bool retransmit = false;
+        int beginPos = in_file.tellg();
+        int beginSeq = 0;
             // Set TCP data
         while(isEnd == 'F'){
+
+             beginPos = in_file.tellg();
+             beginSeq = seqNum;
+            
             for(int i = 0 ; i < windowSize ; i++)
             {
                 in_file.read(packet + HEADERSIZE, DATASIZE);
@@ -70,6 +85,7 @@ void *send_function(void * inparams)
                 if (in_file.gcount() < DATASIZE)
                 {
                     isEnd = 'T';
+                    break;
                 }
 
                 // Set TCP header
@@ -78,14 +94,10 @@ void *send_function(void * inparams)
 
                 // Send TCP packet
                 sender.send(params->hostname, port_cstr, packet, in_file.gcount() + HEADERSIZE);
+                seqNum = (seqNum + 1) % 64;
             }
 
-            char in_ack;
-            char ip_buffer[50];
-            int rec_bytes = 0;
-            my::sockudp rec;
-            rec.init_receive(port_cstr);
-            int newWindowSize = windowSize;
+            
 
             std::vector<bool> AcksReceived(windowSize, false);
             int distinctAcksReceived = 0;
@@ -151,7 +163,7 @@ void *send_function(void * inparams)
                         windowSize = 1;
                         dupeACKcount = 0;
 
-                        //retransmit();
+                        retransmit = true;
                     }
                     else if(dupeACKcount >= 3)
                     {
@@ -180,7 +192,7 @@ void *send_function(void * inparams)
                         windowSize = ssthresh + 3;
 
                         state = FAST_RECOVERY_STATE;
-                        //retransmit();
+                        retransmit = true;
                     }
                     else if(rec_bytes == -1) // we have timed out
                     {
@@ -190,7 +202,7 @@ void *send_function(void * inparams)
                         windowSize = 1;
                         dupeACKcount = 0;
 
-                        //retransmit();
+                        retransmit = true;
                     }
                     break;
                 case FAST_RECOVERY_STATE:
@@ -202,13 +214,25 @@ void *send_function(void * inparams)
                         windowSize = 1;
                         dupeACKcount = 0;
 
-                        //retransmit();
+                        retransmit = true;
                     }
                     break;
             }
 
+            if(retransmit)
+            {
+                for(int i=0; i < AcksReceived.size() ; i++)
+                {
+                    if(!AcksReceived[i])
+                    {
+                        in_file.seekg(beginPos + DATASIZE * i, in_file.beg);
+                        seqNum = beginSeq + i;
+                        break;
+                    }
+                }
+            }
 
-            seqNum = (seqNum + 1) % 64;
+
         }
         in_file.close();
 
