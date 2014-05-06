@@ -32,6 +32,7 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile)
         rec_bytes = receiver.receive(packet, ip, PACKETSIZE);
         if (rec_bytes > 0)
         {
+	    std::cout << packet << std::endl;
 	    // packet is next packet in consecutive order after last consecutive set 
 	    if((packet[0] == (lastConsecSeqNum + 1)) || ((packet[0] == 0) && (lastConsecSeqNum == 63)))
 	    {

@@ -86,7 +86,7 @@ int my::sockudp::receive(char * message, char * ip, int size){
 	char s[MAXBUFLEN];
 	int numbytes;
 
-    if ((numbytes = recvfrom(sockinfd, message, size - 1 , 0,
+    if ((numbytes = recvfrom(sockinfd, message, size , 0,
         (struct sockaddr *)&their_addr, &addr_len)) == -1) {
         perror("recvfrom");
         return -1;
