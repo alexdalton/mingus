@@ -44,6 +44,7 @@ void *send_function(void * inparams)
     std::ifstream in_file;
     in_file.open(params->filename, std::ifstream::binary);
 //    std::cout << params->hostname << params->port << params ->filename << params->bytesToTransfer << std::endl;
+    unsigned long long bytesLeft = params->bytesToTransfer;
     if (in_file)
     {
         char port_cstr[6];
@@ -80,7 +81,12 @@ void *send_function(void * inparams)
             
             for(int i = 0 ; i < windowSize ; i++)
             {
-                in_file.read(packet + HEADERSIZE, DATASIZE);
+            	if (bytesLeft >= DATASIZE)
+                	in_file.read(packet + HEADERSIZE, DATASIZE);
+                else
+                	in_file.read(packet + HEADERSIZE, bytesLeft);
+
+                bytesLeft -= DATASIZE;
 
                 // Read less bytes than data size, end of file reached
                 if (in_file.gcount() < DATASIZE)
