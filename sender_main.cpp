@@ -43,7 +43,7 @@ void *send_function(void * inparams)
     sendThreadParams * params = (sendThreadParams *) inparams;
     std::ifstream in_file;
     in_file.open(params->filename, std::ifstream::binary);
-    std::cout << params->hostname << params->port << params ->filename << params->bytesToTransfer << std::endl;
+//    std::cout << params->hostname << params->port << params ->filename << params->bytesToTransfer << std::endl;
     if (in_file)
     {
         char port_cstr[6];
@@ -93,7 +93,7 @@ void *send_function(void * inparams)
                 packet[0] = seqNum;
                 packet[1] = isEnd;
 
-                std::cout << "sent " << (int)seqNum << std::endl;
+//                std::cout << "sent " << (int)seqNum << std::endl;
                 // Send TCP packet
                 //if(seqNum != 43)
                     sender.send(params->hostname, port_cstr, packet, in_file.gcount() + HEADERSIZE);
@@ -115,12 +115,12 @@ void *send_function(void * inparams)
                 if (rec_bytes != -1) // if no timeout or error
                 {
                     
-                    std::cout << "inack: " << (int)in_ack << std::endl;
-                    std::cout << __LINE__ << std::endl;
+//                    std::cout << "inack: " << (int)in_ack << std::endl;
+//                    std::cout << __LINE__ << std::endl;
                     in_ack = ((int)in_ack - beginSeq);
                     if(in_ack < 0)
                         in_ack += 64;
-                    std::cout << "inack: " << (int)in_ack << std::endl;
+//                    std::cout << "inack: " << (int)in_ack << std::endl;
                     if((int)in_ack == -1 && state == FAST_RECOVERY_STATE)
                     {                    
                         dupeACKcount++;
@@ -162,7 +162,7 @@ void *send_function(void * inparams)
                         else if(FAST_RECOVERY_STATE == state)
                             newWindowSize++;
                     }
-                    std::cout << "Acknolwedged: " << ((int)in_ack + beginSeq)%64 << "in state " << state << std::endl;
+//                    std::cout << "Acknolwedged: " << ((int)in_ack + beginSeq)%64 << "in state " << state << std::endl;
                 }
                 else // TIMEOUT case
                 {
@@ -243,7 +243,7 @@ void *send_function(void * inparams)
                     break;
             }
 
-            std::cout << "in state " << state << "\nWindows size: " << (int)windowSize << std::endl;
+//            std::cout << "in state " << state << "\nWindows size: " << (int)windowSize << std::endl;
 
             if(retransmit)
             {
