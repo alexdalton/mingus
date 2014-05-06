@@ -72,10 +72,10 @@ void *send_function(void * inparams)
         int beginPos = in_file.tellg();
         int beginSeq = 0;
             // Set TCP data
-        while(isEnd == 'F'){
-
-             beginPos = in_file.tellg();
-             beginSeq = seqNum;
+        while(isEnd == 'F' || retransmit){
+            retransmit = false;
+            beginPos = in_file.tellg();
+            beginSeq = seqNum;
             
             for(int i = 0 ; i < windowSize ; i++)
             {
@@ -85,32 +85,52 @@ void *send_function(void * inparams)
                 if (in_file.gcount() < DATASIZE)
                 {
                     isEnd = 'T';
-                    break;
                 }
 
                 // Set TCP header
                 packet[0] = seqNum;
                 packet[1] = isEnd;
 
+                std::cout << "sent " << (int)seqNum << std::endl;
                 // Send TCP packet
-                sender.send(params->hostname, port_cstr, packet, in_file.gcount() + HEADERSIZE);
+                if(seqNum != 43)
+                    sender.send(params->hostname, port_cstr, packet, in_file.gcount() + HEADERSIZE);
                 seqNum = (seqNum + 1) % 64;
-            }
+                if(isEnd == 'T')
+                    break;
 
+            }
+            //std::cout << __LINE__ << std::endl;
             
 
             std::vector<bool> AcksReceived(windowSize, false);
             int distinctAcksReceived = 0;
-
+            //std::cout << __LINE__ << std::endl;
             for(int i = 0; i < windowSize ; i++)
             {
+                //std::cout << __LINE__ << std::endl;
                 rec_bytes = rec.recOrTimeOut(&in_ack, ip_buffer, 1, 1);
                 if (rec_bytes != -1) // if no timeout or error
                 {
+                    std::cout << __LINE__ << std::endl;
+                    in_ack = ((int)in_ack - beginSeq) % 64;
+//                    std::cout << "inack: " << (int)in_ack << std::endl;
+                    if((int)in_ack == -1)
+                    {                        
+                        dupeACKcount++;
+                        if(dupeACKcount >= 3 && state != FAST_RECOVERY_STATE)
+                            break;
+                        else if(FAST_RECOVERY_STATE == state)
+                            newWindowSize++;
+                        continue;
+                    }
+
+
                     if(AcksReceived[(int)in_ack] == false) // new ACK case
                     {
-                        AcksReceived[(int)in_ack] = true;
 
+                        AcksReceived[(int)in_ack] = true;
+                        //std::cout << __LINE__ << std::endl;
                         switch(state)
                         {
                             case SLOW_START_STATE:
@@ -134,12 +154,9 @@ void *send_function(void * inparams)
                         if(dupeACKcount >= 3 && state != FAST_RECOVERY_STATE)
                             break;
                         else if(FAST_RECOVERY_STATE == state)
-                        {
                             newWindowSize++;
-
-                        }
                     }
-                    std::cout << "Acknolwedged: " << (int)in_ack << std::endl;
+                    std::cout << "Acknolwedged: " << ((int)in_ack + beginSeq)%64 << "in state " << state << std::endl;
                 }
                 else // TIMEOUT case
                 {
@@ -172,6 +189,7 @@ void *send_function(void * inparams)
                         if(ssthresh < 1)
                             ssthresh = 1;
                         windowSize = ssthresh + 3;
+                        retransmit = true;
                     }
                     else if(windowSize >= ssthresh)
                     {
@@ -218,6 +236,8 @@ void *send_function(void * inparams)
                     }
                     break;
             }
+
+            std::cout << "in state " << state << "\nWindows size: " << (int)windowSize << std::endl;
 
             if(retransmit)
             {
