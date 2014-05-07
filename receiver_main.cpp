@@ -30,7 +30,7 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile)
     receiver.init_receive(port);
 
     bool receivedOtherPackets = false;
-    std::vector<int> packetTrack;
+   //std::vector<int> packetTrack;
     while(1)
     {
         rec_bytes = receiver.receive(packet, ip, PACKETSIZE);
@@ -43,28 +43,29 @@ void reliablyReceive(unsigned short int myUDPport, char* destinationFile)
 	    if(seqNum == (lastConsecSeqNum + 1))
 	    {
 		lastConsecSeqNum++;
-		if (receivedOtherPackets)
+		/*if (receivedOtherPackets)
 		{
 		    receivedOtherPackets = false;
 		    std::sort (packetTrack.begin(), packetTrack.end());
 		    for(std::vector<int>::iterator it=packetTrack.begin(); it != packetTrack.end(); it++)
 		    {
+			std::cout << *it << std::endl;
 			if(*it == (lastConsecSeqNum + 1))
 			{
 				lastConsecSeqNum++;
 			}
 		    } 
-		}
+		}*/
 	    }
-	    else
+	    /*else
 	    {
 		std::cout << "Received other packet: " << seqNum << std::endl;
 		packetTrack.clear();
 		packetTrack.push_back(seqNum);
 	    	receivedOtherPackets = true;
-	    }
+	    }*/
             // Send acknowledgement
-            std::cout << "ACK:" << lastConsecSeqNum << std::endl;
+            //std::cout << "ACK:" << lastConsecSeqNum << std::endl;
             receiver.send(ip, port, (char *) &lastConsecSeqNum, 4);
 
 	    // write data to file in proper location
