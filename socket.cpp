@@ -78,6 +78,29 @@ int my::sockudp::recOrTimeOut(char* message, char* ip, int ms, int size){
         return -1;
 }
 
+int my::sockudp::recOrTimeOutns(char* message, char* ip, int us, int size){
+    fd_set socks;
+    timeval tv;
+    tv.tv_sec = 0;
+    tv.tv_usec = us;
+    FD_ZERO(&socks);
+    FD_SET(sockinfd, &socks);
+
+    int rv = select(sockinfd + 1, &socks, NULL, NULL, &tv);
+
+    
+    if(rv == -1)
+        return -1;
+    else if (rv == 0)
+        return -1;
+    else if (FD_ISSET(sockinfd,&socks))
+    {
+        return receive(message, ip, size);
+    }
+    else
+        return -1;
+}
+
 int my::sockudp::receive(char * message, char * ip, int size){
 	struct sockaddr_storage their_addr;
 

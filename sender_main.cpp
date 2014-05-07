@@ -25,8 +25,8 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
     int dupeACKcount = 0;
     int ssthresh = SLOW_START_DEF;
     int state = SLOW_START_STATE;
-    int count = 0;
-    unsigned long long bytesLeft = bytesToTransfer;
+
+    //unsigned long long bytesLeft = bytesToTransfer;
 
     std::ifstream in_file;
     in_file.open(filename, std::ifstream::binary);
@@ -56,35 +56,37 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
         int newWindowSize = windowSize;
 
         bool retransmit = false;
+        int beginPos = in_file.tellg();
         int beginSeq = 0;
+        int lastPacket = 0x0FFFFFFF;
 
-        // Set TCP data
-        while(isEnd == 'F' || retransmit)
-	{
+            // Set TCP data
+        while(seqNum < lastPacket)
+        {
             retransmit = false;
+            beginPos = in_file.tellg();
             beginSeq = seqNum;
             
             for(int i = 0 ; i < windowSize ; i++)
             {
-                in_file.seekg(DATASIZE * seqNum, in_file.beg);
-		unsigned long long position = in_file.tellg();
-		if((position + DATASIZE) >=  bytesToTransfer)
-		{
-			in_file.read(packet + HEADERSIZE, bytesToTransfer - in_file.tellg());
-			isEnd = 'T';
-			windowSize = i + 1;
-		}
-		else
-		{
-                	in_file.read(packet + HEADERSIZE, DATASIZE);
-		}
+                if(seqNum > lastPacket)
+                    break;
+
+                unsigned long long int toRead = DATASIZE;
+                if((unsigned long long)(seqNum + 1) * DATASIZE > bytesToTransfer) // if next packet to read, is too large, clamp it
+                    toRead = bytesToTransfer - ( seqNum * DATASIZE );
+                in_file.read(packet + HEADERSIZE, toRead);
 
                 // Read less bytes than data size or end of file reached
-                if ( (in_file.gcount() < DATASIZE) || in_file.eof())
+                if ( (in_file.gcount() < DATASIZE) || in_file.eof() )
                 {
                     isEnd = 'T';
                     windowSize = i+1;
-		    //std::cout << "Reached EOF\n";
+                    #ifdef DEBUG
+                    std::cout << "Reached EOF\n";
+                    #endif
+                    lastPacket = seqNum;
+                    in_file.clear();
                 }
 
                 // Set TCP header
@@ -92,42 +94,60 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
                 packet[4] = isEnd;
 
                 // Send TCP packet
-                //std::cout << i + 1 << " of " << windowSize<< " SEND: " << *((int *) packet) << std::endl;
-
-		count++;
-		//if(count % 20)
-                    sender.send(hostname, port_cstr, packet, in_file.gcount() + HEADERSIZE);
+                #ifdef DEBUG
+                std::cout << "SEND: " << *((int *) packet) << std::endl;
+                #endif
+                sender.send(hostname, port_cstr, packet, in_file.gcount() + HEADERSIZE);
                 seqNum++;
                 if(isEnd == 'T')
                     break;
 
             }
-            
-	    //std::cout << "WindowSize: " << windowSize << std::endl;
+            #ifdef DEBUG
+	    std::cout << "WindowSize: " << windowSize << std::endl;
+        #endif
             std::vector<bool> AcksReceived(windowSize, false);
             int distinctAcksReceived = 0;
-	    //std::cout << "State: " << state << std::endl;
-	    newWindowSize = windowSize;
+            #ifdef DEBUG
+    	    std::cout << "State: " << state << std::endl;
+            #endif
+    	    newWindowSize = windowSize;
             for(int i = 0; i < windowSize ; i++)
             {
-                rec_bytes = rec.recOrTimeOut((char*) &in_ack, ip_buffer, 10, 4);
+                rec_bytes = rec.recOrTimeOut((char*) &in_ack, ip_buffer, 100, 4);
                 if (rec_bytes != -1) // if no timeout or error
                 {
-		    //std::cout << i + 1 << " of " << windowSize << " Received ACK: " << in_ack << std::endl;
-                    in_ack = in_ack - beginSeq;
-		    if(in_ack < 0)
-		    {
-                        dupeACKcount++;
-                        if(dupeACKcount >= 3 && state != FAST_RECOVERY_STATE)
-                            break;
-                        else if(FAST_RECOVERY_STATE == state)
-                            newWindowSize++;
-			continue;
- 		    }
-                    if(AcksReceived[in_ack] == false) // new ACK case
-                    {
+                    #ifdef DEBUG
+                    std::cout << "Begin: " << beginSeq << " Received ACK: " << in_ack << std::endl;
+                    #endif
+                    int this_ack = in_ack;
 
-                        AcksReceived[in_ack] = true;
+                    in_ack = in_ack - beginSeq;
+                    if(in_ack < 0)
+                    {
+                            dupeACKcount++;
+                            if(dupeACKcount >= 3)
+                                if(state == SLOW_START_STATE)
+                                    break;
+                                else if (state == CONGESTION_STATE)
+                                {
+                                    ssthresh = windowSize/2;
+                                    newWindowSize += 3;
+                                    state = FAST_RECOVERY_STATE;
+                                    break;
+                                }
+                            else if(FAST_RECOVERY_STATE == state)
+                                newWindowSize++;
+                        continue;
+                    }
+
+                    //if(AcksReceived[in_ack] == false) // new ACK case  tempZ
+                    else if(this_ack > lastAck) // tempZ
+                    {
+                        lastAck = this_ack; // tempZ
+                        //AcksReceived[in_ack] = true; // tempZ
+
+
                         switch(state)
                         {
                             case SLOW_START_STATE:
@@ -144,9 +164,12 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
                                 break;
                         }
                     }
-                    else if(AcksReceived[in_ack] == true) // dupe
+                    //else if(AcksReceived[in_ack] == true) // dupe tempZ
+                    else if(this_ack <= lastAck) // tempZ
                     {
+
                         dupeACKcount++;
+
                         if(dupeACKcount >= 3 && state != FAST_RECOVERY_STATE)
                             break;
                         else if(FAST_RECOVERY_STATE == state)
@@ -155,17 +178,41 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
                 }
                 else // TIMEOUT case
                 {
+                    #ifdef DEBUG
+                    std::cout << "timeout occurred" << std::endl;
+                    #endif
                     break;
                 }
                 if(dupeACKcount >= 3)
+                {
+                    // clear out udp buffer
+                    while(1)
+                    {
+
+                        int in_ack = -1;
+                        rec_bytes = rec.recOrTimeOut((char*) &in_ack, ip_buffer, 100, 4);
+                        if(rec_bytes == -1) // on timeout
+                            break;
+                        else
+                        {
+                            newWindowSize++;
+                            #ifdef DEBUG
+                            std::cout<<"processed dupe ack" << std::endl;
+                            #endif
+                        }
+
+                    }
                     break;
+                }
+                    
             }
 
             windowSize = newWindowSize;
- 	    //std::cout<< "windowSize: " << windowSize << std::endl;
-	    //std::cout<< "distinctACKs: " << distinctAcksReceived << std::endl;
-	    int nextSeqNum;
-	    bool useNext = false;
+            #ifdef DEBUG
+     	    std::cout<< "windowSize: " << windowSize << std::endl;
+            std::cout<< "distinctACKs: " << distinctAcksReceived << std::endl;
+            std::cout<< "lastAck: " << lastAck << std::endl;
+            #endif
             switch(state)
             {
                 case SLOW_START_STATE:
@@ -186,31 +233,6 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
                         if(ssthresh < 1)
                             ssthresh = 1;
                         windowSize = ssthresh + 3;
-			while(1)
-			{
-			    int extra_ack;
-			    int extra_bytes;
-                	    extra_bytes = rec.recOrTimeOut((char*) &extra_ack, ip_buffer, 1, 4);
-
-			    if(extra_bytes == -1)
-			    {
- 				break;
-			    }
-			    int index = extra_ack - beginSeq;
-			    if (index < 0)
-			    {
-			    	windowSize++;
-			        nextSeqNum = extra_ack + 1;
-				useNext = true;
-				continue;
-			    }
-			    else if(AcksReceived[(extra_ack - beginSeq)] == true)
-			    {
-			        windowSize++;
-			    }
-			    //std::cout << "test1" << std::endl; 
-			}
-
                         retransmit = true;
                     }
                     else if(windowSize >= ssthresh)
@@ -229,7 +251,8 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
 			state = SLOW_START_STATE;
                         retransmit = true;
                     }
-                    else if(distinctAcksReceived == windowSize) // all acks received
+                    //else if(distinctAcksReceived == windowSize) // all acks received tempZ
+                    else if(lastAck == windowSize + beginSeq - 1)
                     {
                         windowSize++;
                         dupeACKcount = 0;
@@ -242,29 +265,6 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
                         windowSize = ssthresh + 3;
 
                         state = FAST_RECOVERY_STATE;
-			while(1)
-			{
-			    int extra_ack;
-			    int extra_bytes;
-                	    extra_bytes = rec.recOrTimeOut((char*) &extra_ack, ip_buffer, 1, 4);
-			    if(extra_bytes == -1)
-			    {
- 				break;
-			    }
-			    int index = extra_ack - beginSeq;
-			    if (index < 0)
-			    {
-			    	windowSize++;
-			        nextSeqNum = extra_ack + 1;
-				useNext = true;
-				continue;
-			    }
-			    else if(AcksReceived[(extra_ack - beginSeq)] == true)
-			    {
-			        windowSize++;
-			    }
-			    //std::cout << "test1" << std::endl; 
-			}
                         retransmit = true;
                     }
                     break;
@@ -276,31 +276,33 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
                             ssthresh = 1;
                         windowSize = 1;
                         dupeACKcount = 0;
-			state = SLOW_START_STATE;
+                        state = SLOW_START_STATE;
                         retransmit = true;
                     }
                     break;
             }
-            //std::cout << "Retransmit: " << retransmit << std::endl;
+            #ifdef DEBUG
+            std::cout << "Retransmit: " << retransmit << std::endl;
+            #endif
             if(retransmit)
             {
-		if(useNext)
-		{
-		    useNext = false;
-		    seqNum = nextSeqNum;
-		}
-		else
-		{
-                    for(int i=0; i < AcksReceived.size() ; i++)
+                //for(int i=0; i < AcksReceived.size() ; i++) // tempZ
+                {
+//                  if(!AcksReceived[i])
                     {
-                        if(AcksReceived[i])
-                        {
-                            seqNum = beginSeq + i + 1;
-                            //break;
-                        }
+//                        in_file.seekg(beginPos + DATASIZE * i, in_file.beg); // tempZ
+                        in_file.seekg(DATASIZE * (lastAck + 1), in_file.beg); // tempZ
+                        //seqNum = beginSeq + i; // tempZ
+                        
+
+                        //break; // tempZ
                     }
-		} 
+                }
             }
+            
+            in_file.seekg(DATASIZE * (lastAck + 1), in_file.beg); // tempZ
+            seqNum = lastAck+1; // tempZ
+
         }
         in_file.close();
     }
