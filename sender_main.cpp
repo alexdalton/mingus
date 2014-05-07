@@ -8,6 +8,7 @@
 #include <queue>
 #include <vector>
 
+#define DEBUG 1
 #define DATASIZE 1450
 #define HEADERSIZE 5
 #define PACKETSIZE HEADERSIZE + DATASIZE
@@ -95,7 +96,7 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
 
                 // Send TCP packet
                 #ifdef DEBUG
-                std::cout << "SEND: " << *((int *) packet) << std::endl;
+                std::cout << i + 1 << " of " << windowSize << " SEND: " << *((int *) packet) << std::endl;
                 #endif
                 sender.send(hostname, port_cstr, packet, in_file.gcount() + HEADERSIZE);
                 seqNum++;
@@ -118,7 +119,7 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
                 if (rec_bytes != -1) // if no timeout or error
                 {
                     #ifdef DEBUG
-                    std::cout << "Begin: " << beginSeq << " Received ACK: " << in_ack << std::endl;
+                    std::cout << i + 1 << " of " << windowSize << " Received ACK: " << in_ack << std::endl;
                     #endif
                     int this_ack = in_ack;
 
@@ -182,29 +183,7 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
                     std::cout << "timeout occurred" << std::endl;
                     #endif
                     break;
-                }
-                if(dupeACKcount >= 3)
-                {
-                    // clear out udp buffer
-                    while(1)
-                    {
-
-                        int in_ack = -1;
-                        rec_bytes = rec.recOrTimeOut((char*) &in_ack, ip_buffer, 100, 4);
-                        if(rec_bytes == -1) // on timeout
-                            break;
-                        else
-                        {
-                            newWindowSize++;
-                            #ifdef DEBUG
-                            std::cout<<"processed dupe ack" << std::endl;
-                            #endif
-                        }
-
-                    }
-                    break;
-                }
-                    
+                }                    
             }
 
             windowSize = newWindowSize;
@@ -233,6 +212,22 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
                         if(ssthresh < 1)
                             ssthresh = 1;
                         windowSize = ssthresh + 3;
+                        // clear out udp buffer
+                        while(1)
+                        {
+                            int in_ack = -1;
+                            rec_bytes = rec.recOrTimeOutus((char*) &in_ack, ip_buffer, 1, 4);
+                            if(rec_bytes == -1) // on timeout
+                                break;
+                            else
+                            {
+                                newWindowSize++;
+                                #ifdef DEBUG
+                                std::cout<<"processed dupe ack" << std::endl;
+                                #endif
+                            }
+                        }
+
                         retransmit = true;
                     }
                     else if(windowSize >= ssthresh)
@@ -265,6 +260,21 @@ void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* file
                         windowSize = ssthresh + 3;
 
                         state = FAST_RECOVERY_STATE;
+                        while(1)
+                        {
+                            int in_ack = -1;
+                            rec_bytes = rec.recOrTimeOutus((char*) &in_ack, ip_buffer, 1, 4);
+                            if(rec_bytes == -1) // on timeout
+                                break;
+                            else
+                            {
+                                newWindowSize++;
+                                #ifdef DEBUG
+                                std::cout<<"processed dupe ack" << std::endl;
+                                #endif
+                            }
+                        }
+
                         retransmit = true;
                     }
                     break;

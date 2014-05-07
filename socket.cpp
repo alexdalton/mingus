@@ -78,7 +78,7 @@ int my::sockudp::recOrTimeOut(char* message, char* ip, int ms, int size){
         return -1;
 }
 
-int my::sockudp::recOrTimeOutns(char* message, char* ip, int us, int size){
+int my::sockudp::recOrTimeOutus(char* message, char* ip, int us, int size){
     fd_set socks;
     timeval tv;
     tv.tv_sec = 0;
