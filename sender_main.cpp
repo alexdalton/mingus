@@ -8,51 +8,37 @@
 #include <queue>
 #include <vector>
 
-#define DATASIZE 1024
-#define HEADERSIZE 2
+#define DATASIZE 1450
+#define HEADERSIZE 5
 #define PACKETSIZE HEADERSIZE + DATASIZE
-#define SLOW_START_DEF 32;
-#define seqNumMax 64;
+#define SLOW_START_DEF 64;
 
 #define SLOW_START_STATE 0
 #define CONGESTION_STATE 1
 #define FAST_RECOVERY_STATE 2
 
 
-
-
-int sendingData = 1;
-
-
-struct sendThreadParams
-{
-    char* hostname;
-    unsigned short int port;
-    char* filename;
-    unsigned long long int bytesToTransfer;
-};
-
-void *send_function(void * inparams)
+void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* filename,
+                      unsigned long long int bytesToTransfer)
 {
     int lastAck = -1;
     int dupeACKcount = 0;
     int ssthresh = SLOW_START_DEF;
     int state = SLOW_START_STATE;
 
+    unsigned long long bytesLeft = bytesToTransfer;
 
-    sendThreadParams * params = (sendThreadParams *) inparams;
     std::ifstream in_file;
-    in_file.open(params->filename, std::ifstream::binary);
-//    std::cout << params->hostname << params->port << params ->filename << params->bytesToTransfer << std::endl;
-    unsigned long long bytesLeft = params->bytesToTransfer;
+    in_file.open(filename, std::ifstream::binary);
     if (in_file)
     {
         char port_cstr[6];
-        sprintf(port_cstr, "%d", (int) params->port);
+        sprintf(port_cstr, "%d", (int) hostUDPport);
         my::sockudp sender;
+
         int sentBytes = 0;      // number of reliably sent bytes from the file
-        char windowSize = 1; 
-        char seqNum = 0; // part of TCP header indicates sequence number
+        int windowSize = 1; 
+        int seqNum = 0;         // part of TCP header indicates sequence number
         char isEnd = 'F';       // part of TCP header flag indicates last packet        
 
 
@@ -62,7 +48,7 @@ void *send_function(void * inparams)
 
         char packet[PACKETSIZE];
 
-        char in_ack;
+        int in_ack;
         char ip_buffer[50];
         int rec_bytes = 0;
         my::sockudp rec;
@@ -74,75 +60,63 @@ void *send_function(void * inparams)
         int beginSeq = 0;
 
             // Set TCP data
-        while(isEnd == 'F' || retransmit){
+        while(isEnd == 'F' || retransmit)
+	{
             retransmit = false;
             beginPos = in_file.tellg();
             beginSeq = seqNum;
             
             for(int i = 0 ; i < windowSize ; i++)
             {
-            	if (bytesLeft >= DATASIZE)
-                	in_file.read(packet + HEADERSIZE, DATASIZE);
-                else
-                	in_file.read(packet + HEADERSIZE, bytesLeft);
+                in_file.read(packet + HEADERSIZE, DATASIZE);
 
-                bytesLeft -= DATASIZE;
-
-                // Read less bytes than data size, end of file reached
-                if (in_file.gcount() < DATASIZE)
+                // Read less bytes than data size or end of file reached
+                if ( (in_file.gcount() < DATASIZE) || in_file.eof() )
                 {
                     isEnd = 'T';
                     windowSize = i+1;
+		    std::cout << "Reached EOF\n";
                 }
 
                 // Set TCP header
-                packet[0] = seqNum;
-                packet[1] = isEnd;
+                memcpy(packet, &seqNum, 4);
+                packet[4] = isEnd;
 
-//                std::cout << "sent " << (int)seqNum << std::endl;
                 // Send TCP packet
-                //if(seqNum != 43)
-                    sender.send(params->hostname, port_cstr, packet, in_file.gcount() + HEADERSIZE);
-                seqNum = (seqNum + 1) % 64;
+                std::cout << "SEND: " << *((int *) packet) << std::endl;
+                sender.send(hostname, port_cstr, packet, in_file.gcount() + HEADERSIZE);
+                seqNum++;
                 if(isEnd == 'T')
                     break;
 
             }
-            //std::cout << __LINE__ << std::endl;
             
-
+	    std::cout << "WindowSize: " << windowSize << std::endl;
             std::vector<bool> AcksReceived(windowSize, false);
             int distinctAcksReceived = 0;
-            //std::cout << __LINE__ << std::endl;
+	    std::cout << "State: " << state << std::endl;
+	    newWindowSize = windowSize;
             for(int i = 0; i < windowSize ; i++)
             {
-                //std::cout << __LINE__ << std::endl;
-                rec_bytes = rec.recOrTimeOut(&in_ack, ip_buffer, 1, 1);
+                rec_bytes = rec.recOrTimeOut((char*) &in_ack, ip_buffer, 1000, 4);
                 if (rec_bytes != -1) // if no timeout or error
                 {
-                    
-//                    std::cout << "inack: " << (int)in_ack << std::endl;
-//                    std::cout << __LINE__ << std::endl;
-                    in_ack = ((int)in_ack - beginSeq);
-                    if(in_ack < 0)
-                        in_ack += 64;
-//                    std::cout << "inack: " << (int)in_ack << std::endl;
-                    if((int)in_ack == -1 && state == FAST_RECOVERY_STATE)
-                    {                    
+		    std::cout << "Begin: " << beginSeq << " Received ACK: " << in_ack << std::endl;
+                    in_ack = in_ack - beginSeq;
+		    if(in_ack < 0)
+		    {
                         dupeACKcount++;
                         if(dupeACKcount >= 3 && state != FAST_RECOVERY_STATE)
                             break;
                         else if(FAST_RECOVERY_STATE == state)
                             newWindowSize++;
-                        continue;
-                    }
-
-
-                    if(AcksReceived[(int)in_ack] == false) // new ACK case
+			continue;
+ 		    }
+		    	
+                    if(AcksReceived[in_ack] == false) // new ACK case
                     {
 
-                        AcksReceived[(int)in_ack] = true;
-                        //std::cout << __LINE__ << std::endl;
+                        AcksReceived[in_ack] = true;
                         switch(state)
                         {
                             case SLOW_START_STATE:
@@ -154,13 +128,12 @@ void *send_function(void * inparams)
                                 break;
                             case FAST_RECOVERY_STATE:
                                 newWindowSize = ssthresh;
-                                dupeACKcount;
+                                dupeACKcount = 0;
                                 state = CONGESTION_STATE;
                                 break;
                         }
-
                     }
-                    else if(AcksReceived[(int)in_ack] == true) // dupe
+                    else if(AcksReceived[in_ack] == true) // dupe
                     {
                         dupeACKcount++;
                         if(dupeACKcount >= 3 && state != FAST_RECOVERY_STATE)
@@ -168,7 +141,6 @@ void *send_function(void * inparams)
                         else if(FAST_RECOVERY_STATE == state)
                             newWindowSize++;
                     }
-//                    std::cout << "Acknolwedged: " << ((int)in_ack + beginSeq)%64 << "in state " << state << std::endl;
                 }
                 else // TIMEOUT case
                 {
@@ -180,7 +152,8 @@ void *send_function(void * inparams)
             }
 
             windowSize = newWindowSize;
-
+ 	    std::cout<< "windowSize: " << windowSize << std::endl;
+	    std::cout<< "distinctACKs: " << distinctAcksReceived << std::endl;
             switch(state)
             {
                 case SLOW_START_STATE:
@@ -209,7 +182,17 @@ void *send_function(void * inparams)
                     }
                     break;
                 case CONGESTION_STATE:
-                    if(distinctAcksReceived == windowSize) // all acks received
+                    if(rec_bytes == -1) // we have timed out
+                    {
+                        ssthresh = windowSize/2;
+                        if(ssthresh < 1)
+                            ssthresh = 1;
+                        windowSize = 1;
+                        dupeACKcount = 0;
+			state = SLOW_START_STATE;
+                        retransmit = true;
+                    }
+                    else if(distinctAcksReceived == windowSize) // all acks received
                     {
                         windowSize++;
                         dupeACKcount = 0;
@@ -224,16 +207,6 @@ void *send_function(void * inparams)
                         state = FAST_RECOVERY_STATE;
                         retransmit = true;
                     }
-                    else if(rec_bytes == -1) // we have timed out
-                    {
-                        ssthresh = windowSize/2;
-                        if(ssthresh < 1)
-                            ssthresh = 1;
-                        windowSize = 1;
-                        dupeACKcount = 0;
-
-                        retransmit = true;
-                    }
                     break;
                 case FAST_RECOVERY_STATE:
                     if(rec_bytes == -1) // we have timed out
@@ -243,14 +216,12 @@ void *send_function(void * inparams)
                             ssthresh = 1;
                         windowSize = 1;
                         dupeACKcount = 0;
-
+			state = SLOW_START_STATE;
                         retransmit = true;
                     }
                     break;
             }
-
-//            std::cout << "in state " << state << "\nWindows size: " << (int)windowSize << std::endl;
-
+            std::cout << "Retransmit: " << retransmit << std::endl;
             if(retransmit)
             {
                 for(int i=0; i < AcksReceived.size() ; i++)
@@ -263,44 +234,9 @@ void *send_function(void * inparams)
                     }
                 }
             }
-
-
         }
         in_file.close();
-
     }
-   
-    pthread_exit(NULL);
-}
-
-
-
-void *receive_function(void * inport)
-{
-
-}
-
-void reliablyTransfer(char* hostname, unsigned short int hostUDPport, char* filename,
-                      unsigned long long int bytesToTransfer)
-{
-    pthread_t send_thread, receive_thread;
-    int iret1, iret2;
-
-    // initialize params for sendThread
-    sendThreadParams * sendParams = new sendThreadParams;
-    sendParams->hostname = hostname;
-    sendParams->port = hostUDPport;
-    sendParams->filename = filename;
-    sendParams->bytesToTransfer = bytesToTransfer;
-
-    // create threads to send data and to receive ACKs
-    iret1 = pthread_create(&send_thread, NULL, send_function, (void*) sendParams);
-    iret2 = pthread_create(&receive_thread, NULL, receive_function, (void*) &hostUDPport);
-
-    // wait until threads finish
-    pthread_join(send_thread, NULL);
-    pthread_join(receive_thread, NULL);
-    delete sendParams;
 }
 
 int main(int argc, char** argv)

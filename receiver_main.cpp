@@ -5,58 +5,77 @@
 #include "socket.h"
 #include <fstream>
 #include <pthread.h>
+#include <vector>
+#include <algorithm>
 
-#define HEADERSIZE    2
-#define DATASIZE      1024
-#define PACKETSIZE    HEADERSIZE + DATASIZE
-#define MAXSEQNUM     64
-#define MAXSSTHRESH   DATASIZE * MAXSEQNUM
+#define HEADERSIZE    	 5
+#define DATASIZE      	 1450
+#define PACKETSIZE    	 HEADERSIZE + DATASIZE
+#define NUMPACKSBUF      32
+#define DATABUFFERSIZE   DATASIZE * NUMPACKSBUF
+
 
 void reliablyReceive(unsigned short int myUDPport, char* destinationFile)
 {
     std::ofstream outfile(destinationFile, std::ofstream::binary); // output file stream
-    char packet[PACKETSIZE];                    // buffer for receiving packets
-    char data_buffer[MAXSSTHRESH];              // buffer for storing received data
+    char packet[PACKETSIZE];                    // buffer to hold a received packet
     char ip[50];
     char port[6];
     int rec_bytes = 0;
-    char lastConsecSeqNum = 63;                 // Tracks the last seqNum in a consecutive sequence of packets
+    int lastConsecSeqNum = -1;                 // Tracks the last seqNum in a consecutive sequence of packets
 
     // Initialize UDP socket to listen on given port
     sprintf(port, "%d", (int) myUDPport);
     my::sockudp receiver;
     receiver.init_receive(port);
 
+    bool receivedOtherPackets = false;
+    std::vector<int> packetTrack;
     while(1)
     {
         rec_bytes = receiver.receive(packet, ip, PACKETSIZE);
         if (rec_bytes > 0)
         {
-//	    std::cout << packet << std::endl;
-	    // packet is next packet in consecutive order after last consecutive set 
-	    if((packet[0] == (lastConsecSeqNum + 1)) || ((packet[0] == 0) && (lastConsecSeqNum == 63)))
+	    // first 4 bytes are the seqNum integer
+	    int seqNum;
+	    memcpy(&seqNum, packet, 4);
+	    // packet is next packet in consecutive order after last consecutive set
+	    if(seqNum == (lastConsecSeqNum + 1))
 	    {
-		lastConsecSeqNum = packet[0];
+		lastConsecSeqNum++;
+		if (receivedOtherPackets)
+		{
+		    receivedOtherPackets = false;
+		    std::sort (packetTrack.begin(), packetTrack.end());
+		    for(std::vector<int>::iterator it=packetTrack.begin(); it != packetTrack.end(); it++)
+		    {
+			if(*it == (lastConsecSeqNum + 1))
+			{
+				lastConsecSeqNum++;
+			}
+		    } 
+		}
+	    }
+	    else
+	    {
+		std::cout << "Received other packet: " << seqNum << std::endl;
+		packetTrack.clear();
+		packetTrack.push_back(seqNum);
+	    	receivedOtherPackets = true;
 	    }
             // Send acknowledgement
-            receiver.send(ip, port, &lastConsecSeqNum, 1);
+            std::cout << "ACK:" << lastConsecSeqNum << std::endl;
+            receiver.send(ip, port, (char *) &lastConsecSeqNum, 4);
 
-	    // Buffer the data from the packet
-            char seqNum = packet[0];
-            int offset = ((int) seqNum) * DATASIZE;
-            memcpy(data_buffer + offset, packet + HEADERSIZE, rec_bytes - HEADERSIZE);
-            if((lastConsecSeqNum == 63) || (packet[1] == 'T'))
+	    // write data to file in proper location
+	    outfile.seekp(seqNum * DATASIZE ,outfile.beg);
+            outfile.write(packet + HEADERSIZE, rec_bytes - HEADERSIZE);
+            // isEnd flag set to True
+            if ((packet[4] == 'T') && (lastConsecSeqNum == seqNum))
             {
-                // write data buffer to file
-                int bufferSize = (((int)lastConsecSeqNum) * DATASIZE) + rec_bytes - HEADERSIZE;
-                outfile.write(data_buffer, bufferSize);
-            }
-	    // isEnd flag set to True
-            if (packet[1] == 'T')
-            {
-		receiver.end_receive();
-		outfile.close();
-            	return;
+	        receiver.end_receive();
+	        outfile.close();
+                return;
             }
         }
     }
