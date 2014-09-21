@@ -1,0 +1,33 @@
+
+QUESTION:
+
+1 How many floating operations are being performed in your matrix multiply kernel? explain.
+2 How many global memory reads are being performed by your kernel? explain.
+3 How many global memory writes are being performed by your kernel? explain.
+
+4 Explain why, given your answers to the first three questions, why your lab3 solution should be faster than your lab 2 solution.
+
+5 In your kernel implementation, how many threads can be simultaneouslyIn your kernel implementation, how many threads can be simultaneously scheduled for execution on a GeForce GTX 280 GPU, which contains 30 streaming multiprocessors? Use:
+
+    nvcc --ptxas-options="-v" kernel.cu
+
+to see the resource usage of your kernel (although compilation will fail, it will only do so after compiling the kernel and displaying the relevant information). Show how you calculated your answer keeping in mind the various relevant constraints.
+
+Use http://en.wikipedia.org/wiki/CUDA to see the resource information for GTX280 GPU. Check the compute capability for GTX280 and then check the technical specifications of it. 
+
+ANSWER:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

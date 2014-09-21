@@ -79,3 +79,10 @@ data/lab2-basic-vector-multiplication/lib/wbTimer.h.i
 data/lab2-basic-vector-multiplication/lib/wbTypes.h.i
 data/lab2-basic-vector-multiplication/questions.i
 data/lab2-basic-vector-multiplication/template.cu.i
+data/lab3-sgemm-tiled/Makefile.i
+data/lab3-sgemm-tiled/answers.txt.i
+data/lab3-sgemm-tiled/kernel.cu.i
+data/lab3-sgemm-tiled/main.cu.i
+data/lab3-sgemm-tiled/support.cu.i
+data/lab3-sgemm-tiled/support.h.i
+data/lab3-sgemm-tiled/timer.cu.i
