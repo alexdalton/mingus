@@ -1,0 +1,11 @@
+
+Setting up the problem...0.000258 s
+    A: 80 x 99
+    B: 99 x 128
+    C: 80 x 128
+Allocating device variables...0.600078 s
+Copying data from host to device...0.000081 s
+Launching kernel...0.000095 s
+Copying data from device to host...0.000057 s
+Verifying results...TEST PASSED
+
