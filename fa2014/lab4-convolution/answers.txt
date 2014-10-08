@@ -1,0 +1,51 @@
+
+QUESTION:
+
+What is the FLOPS rate for the GPU kernel in this application? How does it 
+scale with the size of the input image? To answer this question, try multiple 
+input sizes (five is a good number) and calculate the rate for each then 
+compare. Only include floating point additions and multiplications when 
+calculating the total number of operations. Use the kernel timing measurements 
+provided in the code for calculating the execution time.
+
+ANSWER:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+QUESTION:
+
+What percentage of time is spent as overhead for using the GPU? Consider as 
+overhead: device memory allocation time and memory copy time to and from the 
+device. Do not include problem setup time or result verification time in your 
+calculations of overhead or total execution time. Try this with multiple input 
+sizes and explain how the overhead scales with the size of your input.
+
+ANSWER:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
