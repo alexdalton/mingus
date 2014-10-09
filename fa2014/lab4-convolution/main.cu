@@ -27,7 +27,6 @@ int main(int argc, char* argv[])
 	Matrix N_d, P_d;
 	unsigned imageHeight, imageWidth;
 	cudaError_t cuda_ret;
-	dim3 dim_grid, dim_block;
 
 	/* Read image dimensions */
     if (argc == 1) {
@@ -81,7 +80,8 @@ int main(int argc, char* argv[])
 	copyToDeviceMatrix(N_d, N_h);
 
 	/* Copy mask to device constant memory */
-    // INSERT CODE HERE
+        // INSERT CODE HERE
+        cudaMemcpyToSymbol(M_c, M_h.elements, FILTER_SIZE*FILTER_SIZE*sizeof(float));
 
 
 
@@ -95,17 +95,15 @@ int main(int argc, char* argv[])
 
     // INSERT CODE HERE
     // Use OUTPUT_TILE_SIZE and INPUT_TILE_SIZE defined in support.h
+    const unsigned int grid_x = (imageWidth - 1) / OUTPUT_TILE_SIZE + 1;
+    const unsigned int grid_y = (imageHeight -1) / OUTPUT_TILE_SIZE + 1;
+    dim3 dim_grid(grid_x, grid_y, 1);
+    dim3 dim_block(INPUT_TILE_SIZE, INPUT_TILE_SIZE, 1);
 
+    convolution<<<dim_grid, dim_block>>>(N_d, P_d);
 
-
-
-
-
-
-	convolution<<<dim_grid, dim_block>>>(N_d, P_d);
-
-	cuda_ret = cudaDeviceSynchronize();
-	if(cuda_ret != cudaSuccess) FATAL("Unable to launch/execute kernel");
+    cuda_ret = cudaDeviceSynchronize();
+    if(cuda_ret != cudaSuccess) FATAL("Unable to launch/execute kernel");
 
     cudaDeviceSynchronize();
     stopTime(&timer); printf("%f s\n", elapsedTime(timer));
