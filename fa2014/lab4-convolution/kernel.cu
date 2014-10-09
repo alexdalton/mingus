@@ -61,7 +61,6 @@ __global__ void convolution(Matrix N, Matrix P)
             P.elements[row_o * P.width + col_o] = output;
         }
     }
-    // sync all threads to finish so next block can go
-    __syncthreads();
+ 
 }
 

@@ -9,19 +9,26 @@ calculating the total number of operations. Use the kernel timing measurements
 provided in the code for calculating the execution time.
 
 ANSWER:
+The convolution is performed size times, extra threads do not perform the
+convolution. So there are 2 * FilterSize * FilterSize FLOPs per thread. So
+total number of FLOPs = 2 * SIZE * FILTERSIZE * FILTERSIZE. FLOPS would be
+this value divided by the time it takes to run the kernel. The following
+results use FILTERSIZE = 5.
 
+Size         Time (s)      FLOPS
+100         .000062        80645161
+2500        .000064        1.95E+09
+10000       .000066        7.58E+09
+250000      .000196        6.38E+10
+1000000     .000596        8.39E+10
+4000000     .002135        9.37E+10
+16000000    .008289        9.65E+10
+100000000   .05163         9.68E+10
 
-
-
-
-
-
-
-
-
-
-
-
+With this data it's clear that the FLOPS of the GPU kernel scales
+logarithmically with respect to size of the input image. Since this fits a
+logarithmic curve the FLOPS for the GPU kernel in this application is bounded
+by about 9.7E+10. So FLOPS rate is ~9.7E+10.
 
 QUESTION:
 
@@ -32,9 +39,19 @@ calculations of overhead or total execution time. Try this with multiple input
 sizes and explain how the overhead scales with the size of your input.
 
 ANSWER:
+Size         Overhead Time (s)        % of Total Time
+100          1.289452                 99.99519 
+2500         1.291826                 99.99505
+10000        1.290405                 99.99489
+250000       1.297052                 99.98489
+1000000      1.296469                 99.95405
+4000000      1.309471                 99.83722
+16000000     1.380942                 99.40334
+100000000    1.887332                 97.33724
 
-
-
+So the overhead time stays fairly the same. But what changes is the kernel
+execution time. So as size increases kernel execution time will increase
+exponentially. So % time on overhead will decrease exponentially.
 
 
 
