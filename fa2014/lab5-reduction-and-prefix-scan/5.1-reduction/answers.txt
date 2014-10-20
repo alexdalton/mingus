@@ -1,0 +1,45 @@
+
+QUESTION:
+
+How many times does a single thread block synchronize to reduce its portion of 
+the array to a single value?
+
+ANSWER:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+QUESTION:
+
+What is the minimum, maximum, and average number of "real" operations that a 
+thread will perform? "Real" operations are those that directly contribute to
+the final reduction value.
+
+ANSWER:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
