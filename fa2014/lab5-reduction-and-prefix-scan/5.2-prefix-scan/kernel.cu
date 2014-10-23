@@ -5,7 +5,6 @@
  *cr                         All Rights Reserved
  *cr
  ******************************************************************************/
-
 #define BLOCK_SIZE 512
 
 // Define your kernels in this file you may use more than one kernel if you
@@ -45,8 +44,10 @@ __global__ void scan(float *sums, float *out, float *in, unsigned size)
 
     
     if (tx == 0)
+    {
         sums[blockIdx.x] = partialSum[2 * BLOCK_SIZE - 1];
         partialSum[2 * BLOCK_SIZE - 1] = 0;
+    }
 
     stride = BLOCK_SIZE;
     while(stride > 0)
@@ -69,12 +70,14 @@ __global__ void scan(float *sums, float *out, float *in, unsigned size)
 
 }
 
-__global__ void addSums(float *sums, unsigned sum_size, float *in, unsigned in_size)
+__global__ void addSums(float *sums, float *out, unsigned size)
 {
-    int in_index = (blockIdx.x + 1) * blockDim.x + threadIdx.x;
-    int sum_index = blockIdx.x;
-    if ((in_index < in_size) && (sum_index < sum_size))
-        in[in_index] += sums[sum_index];
+    unsigned int start = 2 * blockIdx.x * blockDim.x;
+    unsigned int tx = threadIdx.x;
+    if ((start + tx) < size)
+        out[start + tx] += sums[blockIdx.x];
+    if ((start + blockDim.x + tx) < size)
+        out[start + blockDim.x + tx] += sums[blockIdx.x];
 }
 
 
@@ -94,23 +97,18 @@ void preScan(float *out, float *in, unsigned in_size)
 
     dim_block.x = BLOCK_SIZE;
     dim_block.y = dim_block.z = 1;
+    dim_grid.x = out_elements;
     dim_grid.y = dim_grid.z = 1;
 
     if (in_size <= 2 * BLOCK_SIZE)
-    {
-        dim_grid.x = 1;
         scan<<<dim_grid, dim_block>>>(sums, out, in, in_size);
-    }
     else
     {
-        dim_grid.x = out_elements;
         scan<<<dim_grid, dim_block>>>(sums, out, in, in_size);
         float * sums_scanned;
         cudaMalloc((void**)&sums_scanned, out_elements*sizeof(float));
         preScan(sums_scanned, sums, out_elements);
-        dim_block.x = 2 * BLOCK_SIZE;
-        dim_grid.x -= 1;
-        addSums<<<dim_grid, dim_block>>>(sums_scanned, out_elements, out, in_size);
+        addSums<<<dim_grid, dim_block>>>(sums_scanned, out, in_size);
         cudaFree(sums_scanned);
     }
     cudaFree(sums);
