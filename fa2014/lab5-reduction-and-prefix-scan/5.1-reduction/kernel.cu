@@ -15,36 +15,19 @@ __global__ void reduction(float *out, float *in, unsigned size)
     Traverse the reduction tree
     Write the computed sum to the output vector at the correct index
     ********************************************************************/
+    __shared__ float scan_array[BLOCK_SIZE];
+    scan_array[threadIdx.x] = in[threadIdx.x];
+    __syncthreads();
 
-    // INSERT KERNEL CODE HERE
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    int stride = 1;
+    while (stride < BLOCK_SIZE)
+    {
+    	int index = (threadIdx.x + 1) * stride * 2 - 1;
+    	if (index < BLOCK_SIZE)
+    	{
+    		scan_array[index] += scan_array[index - stride];
+    		stride *= 2;
+    	}
+    	__syncthreads();
+    }
 }
