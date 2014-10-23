@@ -5,19 +5,9 @@ How many times does a single thread block synchronize to reduce its portion of
 the array to a single value?
 
 ANSWER:
-
-
-
-
-
-
-
-
-
-
-
-
-
+A thread block will synchronize after completing a stride. Since each thread
+block will have up to 10 strides (log2(2 * BLOCK_SIZE)) it will synchronize 10
+times.
 
 QUESTION:
 
@@ -26,7 +16,13 @@ thread will perform? "Real" operations are those that directly contribute to
 the final reduction value.
 
 ANSWER:
-
+The minimum number of real operations = 1 (ex threadIdx.x 511 contributes to
+the partial sum for just 1 stride)
+The maximum number of real operations = 10 (ex threadIdx.x 0 contributes to
+the partial sum for all 10 strides)
+The average number of real operations is about 2. That's because half the
+threads perform 1 operation, a fourth perform 2 operations, an 8th perform 3
+operations, and so on. This averages to about 2.
 
 
 
