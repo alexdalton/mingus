@@ -5,9 +5,17 @@ Describe how you handled arrays not a power of two in size and all
 performance-enhancing optimizations you added.
 
 ANSWER:
+Arrays of not power of 2 are always expanded to a power of 2 by filling in the
+remaining spots with 0 in shared memory. Then the scan is computed on the
+array in shared memory. Only the original elements in the array are then written to global memory ignoring the extra elements that started as 0.
 
-
-
+The major performance enhancing optimizations include having the block size be
+half the number of max elements that can be processed. This way each thread
+will at least contribute one sum to the output array. If there were any more
+threads some threads would merely copy to shared memory and copy out to global
+memory. Another optimization is using a second kernel to add the sums array to
+the out array instead of doing this on the CPU. The scan is also work
+effecient by taking advantage of strides and only computing O(n) summations.
 
 
 
