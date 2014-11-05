@@ -1,0 +1,21 @@
+
+Describe all optimizations you tried regardless of whether you committed to 
+them or abandoned them and whether they improved or hurt performance. For each 
+optimization, include in your report:
+  > A description of the optimization
+  > Any difficulties you had with completing the optimization correctly
+  > The change in execution time after the optimization was applied
+  > An explanation of why you think the optimization helped or hurt performance
+
+
+
+
+
+
+
+
+
+
+
+
+
