@@ -22,6 +22,10 @@ $(EXE): $(OBJ)
 clean:
 	rm -rf *.o $(EXE)
 
+remove:
+	rm -rf histogram.*
+
+
 submit:
 	tar -cf `whoami`.tar kernel.cu report.txt
 

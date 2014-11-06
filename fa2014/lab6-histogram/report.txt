@@ -7,15 +7,28 @@ optimization, include in your report:
   > The change in execution time after the optimization was applied
   > An explanation of why you think the optimization helped or hurt performance
 
+The initial version of my code works as follows:
+    Each thread looks at 6 consecutive inputs and atomically increments the
+    corresponding bins. The bins are incremented by my own atomic function
+    which uses atomicCAS to implement an atomic increment for uint8 types.
 
+    Input = 10000000, Bins = 43000
+    Launching kernel...0.081854 s 
 
+Coalesced memory reads:
+    Adjacent threads now look at adjacent inputs by using a strided
+    pattern. This allows for memory reads to the input array to be coalesced.
+    Thus increasing performance by decreasing time taken to read from global
+    memory. Each thread will look at a max of 2 input elements now.
 
+    No big difficulties.
 
+    The optimization helped a little bit. I guess having memory reads
+    coalesced didn't give a significant increase in performance.
 
+    Input = 10000000, Bins = 43000
+    Launching kernel...0.080438 s
 
-
-
-
-
-
+Private shit:
+TODO
 
